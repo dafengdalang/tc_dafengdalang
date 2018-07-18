@@ -1,5 +1,3 @@
-
-import pandas as pd
 import os
 from glob import glob
 
@@ -26,7 +24,7 @@ if __name__ == '__main__':
 
     for key in class_dict:
         print('class: %s, img num: %d' % (key, class_dict[key]))
-    print('class total num: %d' % class_idx)
+    print('total class num: %d' % class_idx)
 
 #result output
 # class: 吊纬, img num: 6
@@ -77,5 +75,5 @@ if __name__ == '__main__':
 # class: 夹码, img num: 1
 # class: 明嵌线, img num: 1
 # class: 边缺经, img num: 1
-# class total num: 48
+# total class num: 48
 
