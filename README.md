@@ -1,2 +1,2 @@
 # tc_dafengdalang
-天_池_学_浪AI挑战赛
+天_池_雪_浪AI挑战赛
