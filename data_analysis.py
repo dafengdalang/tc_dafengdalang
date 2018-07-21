@@ -21,10 +21,12 @@ if __name__ == '__main__':
                 class_idx += 1
             else:
                 class_dict[class_name] += img_num_in_class
-
+    total_img_num = 0
     for key in class_dict:
         print('class: %s, img num: %d' % (key, class_dict[key]))
+        total_img_num += class_dict[key]
     print('total class num: %d' % class_idx)
+    print('total image num: %d' % total_img_num)
 
 #result output
 # class: 吊纬, img num: 6
@@ -76,4 +78,4 @@ if __name__ == '__main__':
 # class: 明嵌线, img num: 1
 # class: 边缺经, img num: 1
 # total class num: 48
-
+# total image num: 2022
