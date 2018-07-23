@@ -18,25 +18,91 @@ def get_object_rect(tree_root):
             rects.append([int(coord_elem[0].text), int(coord_elem[1].text), int(coord_elem[2].text), int(coord_elem[3].text)])
     return rects
 
+def get_img_cubic(img_array, center_xy, size = 256):
+    size_y, size_x, channel = img_array.shape
+    assert(channel == 3)
+    cubic = np.zeros([size, size, 3], np.uint8)
+    start_xy = [max(0, center_xy[0] - size // 2), max(0, center_xy[1] - size // 2)]
+    end_xy = [min(size_x, center_xy[0] + (size + 1) // 2), min(size_y, center_xy[1] + (size + 1) // 2)]
+    shape_xy = [end_xy[0] - start_xy[0], end_xy[1] - start_xy[1]]
+    offset_xy = [max(size // 2 - center_xy[0] + start_xy[0], 0), max(size // 2 - center_xy[1] + start_xy[1], 0)]
+    cubic[offset_xy[1] : offset_xy[1] + shape_xy[1], offset_xy[0] : offset_xy[0] + shape_xy[0], :] = img_array[start_xy[1] : end_xy[1], start_xy[0] : end_xy[0], :]
+    return cubic
+
 class DataSet(object):
-    def __init__(self, data_dir, init = False, ori_data_dir = None):
+    def __init__(self, data_dir, init = False, ori_data_dir = None, train = False, test = False, train_pkl_data_info_path = None, eval_pkl_data_info_path = None, test_pkl_data_info_path = None):
+        '''
+        init 为True时需要提供ori_data_dir(原始数据目录),将从原始数据目录中统计分类信息，并重新保存图片到规范化的data_dir
+        用于训练时，需指定train为True，并且提供最后三个参数，最后三个路径的文件需要首先执行一次pre_pkl_data函数来生成
+        用于测试时，需指定test为True
+        '''
         self.data_dir = data_dir
+        self.train = train
+        self.test = test
+        self.sample_points_df = None
         if init:
             if not os.path.exists(self.data_dir):
                 os.mkdir(self.data_dir)
-            self.prepare_data(ori_data_dir)
+            self._prepare_data(ori_data_dir)
             with open(os.path.join(self.data_dir, 'data_info.pkl'), 'rb') as fp:
                 self.data_info = pickle.load(fp)
         else:
             with open(os.path.join(self.data_dir, 'data_info.pkl'), 'rb') as fp:
                 self.data_info = pickle.load(fp)
-        
-        self.sample_points_df = None
+        self.train_sample_csv_path = os.path.join(self.data_dir, 'train_sample.csv')
+        self.eval_sample_csv_path = os.path.join(self.data_dir, 'eval_sample.csv')
+        self.test_sample_csv_path = os.path.join(self.data_dir, 'test_sample.csv')
 
-    def get_data_generator(self):
-        pass
+        if self.train:
+            if train_pkl_data_info_path is not None and os.path.exists(train_pkl_data_info_path):
+                with open(train_pkl_data_info_path, 'rb') as fp:
+                    self.train_pkl_data_info = pickle.load(fp)
+            else:
+                print('cannot found train pkl data info file, run init and data prepare step first!!!!')
+                assert(False)
 
-    def prepare_data(self, ori_data_path):
+            if eval_pkl_data_info_path is not None and os.path.exists(eval_pkl_data_info_path):
+                with open(eval_pkl_data_info_path, 'rb') as fp:
+                    self.eval_pkl_data_info = pickle.load(fp)
+            else:
+                print('cannot found eval pkl data info file, run init and data prepare step first!!!!')
+                assert(False)
+        if self.test:
+            if test_pkl_data_info_path is not None and os.path.exists(test_pkl_data_info_path):
+                with open(test_pkl_data_info_path, 'rb') as fp:
+                    self.test_pkl_data_info = pickle.load(fp)
+            else:
+                print('cannot found test pkl data info file, run init and data prepare step first!!!!')
+                assert(False)
+
+    def _get_data_generator(self, pkl_data_infos, batch_size = 16, shuffle = False):
+        batch_data = {'inputs': [], 'out_class': []}
+        batch_data_num = 0
+        while True:
+            if shuffle:
+                np.random.shuffle(pkl_data_infos)
+            for pkl_data_info in pkl_data_infos:
+                pkl_file_path = pkl_data_info['file_path']
+                with open(pkl_file_path, 'rb') as fp:
+                    pkl_file = pickle.load(fp)
+                    if shuffle:
+                        np.random.shuffle(pkl_file)
+                    for record in pkl_file:
+                        batch_data['inputs'].append(record['data'])
+                        batch_data['out_class'].append([1, 0] if record['l'] == 0 else [0, 1])
+                        batch_data_num += 1
+                        if batch_data_num == batch_size:
+                            yield {'inputs': np.array(batch_data['inputs'], np.float32) / 255}, {'out_class': np.array(batch_data['out_class'])}
+                            batch_data = {'inputs': [], 'out_class': []}
+                            batch_data_num = 0
+
+    def get_train_data_gen(self, batch_size):
+        return self._get_data_generator(self.train_pkl_data_info, batch_size, True)
+    
+    def get_eval_data_gen(self, batch_size):
+        return self._get_data_generator(self.eval_pkl_data_info, batch_size, False)
+    
+    def _prepare_data(self, ori_data_path):
         '''
         将类型编号，正常类为class0, 其他类从 class1 ~ class47, 将数据存入文件夹名称为类名的不同文件中
         数据信息统一存入data_info.pkl
@@ -114,8 +180,7 @@ class DataSet(object):
         with open(os.path.join(self.data_dir, 'data_info.pkl'), 'wb') as fp:
             pickle.dump(class_info_dict, fp)
 
-
-    def get_sample_points_per_img(self, img_size_xy, class_rects, sample_point_num = None):
+    def _get_sample_points_per_img(self, img_size_xy, class_rects, sample_point_num = None):
         '''
         从一张图片中获取采样点
         '''
@@ -148,8 +213,7 @@ class DataSet(object):
             
             # sample_list_yx = [(x_sample_list[i], y_sample_list[i]) for i in range(sample_point_num)]
 
-
-    def get_sample_point(self):
+    def _get_sample_point(self):
         '''
         获取采样点信息
         '''
@@ -162,7 +226,7 @@ class DataSet(object):
                     for img_info in self.data_info[key]['img_infos']:
                         img_path = os.path.join('class%d' % self.data_info[key]['l'], img_info['img_name'] + '.jpg')
                         print('img:%s' % img_path)
-                        sample_point_list = self.get_sample_points_per_img((1920, 2560), img_info['rects'])
+                        sample_point_list = self._get_sample_points_per_img((1920, 2560), img_info['rects'])
                         print('sample point num:%d' % len(sample_point_list))
                         for sample_point in sample_point_list:
                             sample_point_csv['img_path'].append(img_path)
@@ -179,9 +243,8 @@ class DataSet(object):
         
         return self.sample_points_df
         
-
     def split_data(self, eval_rate = 0.1, test_rate = 0.1):
-        sample_point_df = self.get_sample_point()
+        sample_point_df = self._get_sample_point()
         point_num = len(sample_point_df)
         sample_point_df = sample_point_df.sample(n = point_num)
         train_sample_point_df = sample_point_df.iloc[0 : int(point_num * ( 1 - eval_rate - test_rate))]
@@ -192,14 +255,88 @@ class DataSet(object):
         eval_sample_point_df.to_csv(os.path.join(self.data_dir, 'eval_sample.csv'), index = False)
         test_sample_point_df.to_csv(os.path.join(self.data_dir, 'test_sample.csv'), index = False)
 
+    def _pack_data_to_pkl(self, pkl_data_dir, sample_point_df, package_num, file_name):
+        if not os.path.exists(pkl_data_dir):
+            os.mkdir(pkl_data_dir)
+        
+        sample_point_df['img_name'] = list(map(lambda img_path: os.path.split(img_path)[1], sample_point_df['img_path']))
+        sample_point_df = sample_point_df.sort_values(by = ['img_name'])
+        sample_num_per_pkl = (len(sample_point_df) + package_num - 1) // package_num
+        img_path = None
+        img_array = None
+        pkl_file = []
+        pkl_file_num = 0
+        pkl_file_idx = 0
+        data_info_pkl = []
+        for _, row in sample_point_df.iterrows():
+            if img_path is None or img_path != row['img_path']:
+                print(img_path)
+                img_array = cv2.imread(os.path.join(self.data_dir, row['img_path']))
+                img_path = row['img_path']
+            pkl_file.append({'data': get_img_cubic(img_array, [row['coordX'], row['coordY']]), 'l': row['l']})
+            pkl_file_num += 1
+            if pkl_file_num == sample_num_per_pkl:
+                pkl_file_path = os.path.join(pkl_data_dir, file_name + ('%d' % pkl_file_idx) + '.pkl')
+                with open(pkl_file_path, 'wb') as fp:
+                    pickle.dump(pkl_file, fp)
+                pkl_file = []
+                
+                pkl_file_idx += 1
+                data_info_pkl.append({'file_path': pkl_file_path, 'data_num': pkl_file_num})
+                print(pkl_file_path)
+                print('data num: %d' % pkl_file_num)
+                pkl_file_num = 0
+        if pkl_file_num:
+            pkl_file_path = os.path.join(pkl_data_dir, file_name + ('%d' % pkl_file_idx) + '.pkl')
+            with open(pkl_file_path, 'wb') as fp:
+                pickle.dump(pkl_file, fp)
+            pkl_file = []
+            pkl_file_idx += 1
+            data_info_pkl.append({'file_path': pkl_file_path, 'data_num': pkl_file_num})
+            print(pkl_file_path)
+            print('data num: %d' % pkl_file_num)
+            pkl_file_num = 0
+        
+        with open(os.path.join(pkl_data_dir, file_name + '_info.pkl'), 'wb') as fp:
+            pickle.dump(data_info_pkl, fp)
+
+    def pre_pkl_data(self, pkl_file_dir):
+        if not os.path.exists(self.train_sample_csv_path):
+            print('cannot found train data sample points info, try to run init step first!!!')
+            assert(False)
+        if not os.path.exists(self.eval_sample_csv_path):
+            print('cannot found eval data sample points info, try to run init step first!!!')
+            assert(False)
+        if not os.path.exists(self.test_sample_csv_path):
+            print('cannot found test data sample points info, try to run init step first!!!')
+            assert(False)
+        self.train_data_info_df = pd.read_csv(self.train_sample_csv_path)
+        self.eval_data_info_df = pd.read_csv(self.eval_sample_csv_path)
+        self.test_data_info_df = pd.read_csv(self.test_sample_csv_path)
+        self._pack_data_to_pkl(pkl_file_dir, self.train_data_info_df, 20, 'train')
+        self._pack_data_to_pkl(pkl_file_dir, self.eval_data_info_df, 2, 'eval')
+        self._pack_data_to_pkl(pkl_file_dir, self.test_data_info_df, 2, 'test')
+
+    def _get_data_num(self, pkl_data_info):
+        total_num = 0
+        for data_info in pkl_data_info:
+            total_num += data_info['data_num']
+        return total_num
+    
+    def get_train_data_num(self):
+        return self._get_data_num(self.train_pkl_data_info)
+
+    def get_eval_data_num(self):
+        return self._get_data_num(self.eval_pkl_data_info)
+    
+    def get_test_data_num(self):
+        return self._get_data_num(self.test_pkl_data_info)
 
 if __name__ == '__main__':
     if False:
         data_set = DataSet("D:\\data\\tc", True, 'D:\\data\\天池')
-    if True:
-        data_set = DataSet("D:\\data\\tc", False)
         data_set.split_data()
-
+        data_set.pre_pkl_data("D:\\data\\tc\\pkl_data\\")
     # with open('D:\\data\\tc', 'rb') as fp:
     #     data_info = pickle.load(fp)
     if False:

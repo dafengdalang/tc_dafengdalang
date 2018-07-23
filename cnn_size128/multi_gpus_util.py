@@ -5,16 +5,7 @@ from keras.layers import Input, Lambda
 from keras.layers.merge import Concatenate
 from keras import backend as K
 import os
-
-# '0,1,2,3'  '3,4,5,6' '6,7,8,9' '0,1,2' '3,4,5' '6,7,8'
-# os.environ['CUDA_VISIBLE_DEVICES'] = '3,4,5' #=>availabel devices  '0,1,2,4,5,6,7,8,9' '5,6,7,8,9' '0,1,2,3,4' '5,6,7,8'
-
 import tensorflow as tf
-# session_config = tf.ConfigProto()
-# session_config.gpu_options.allow_growth = True
-# session_config.gpu_options.per_process_gpu_memory_fraction = 0.2 # 0.2*
-# session_config.allow_soft_placement = True
-# session = tf.Session(config=session_config)
 
 
 USE_FREE_MEMORY_RATIO=1.0 #使用可用内存的多少比例

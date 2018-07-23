@@ -1,15 +1,19 @@
 import keras
+# 优化器与监控值
 from keras.optimizers import SGD, RMSprop
-from keras.metrics import binary_accuracy, binary_crossentropy, mean_absolute_error
+from keras.metrics import binary_accuracy
 from keras.callbacks import ModelCheckpoint, Callback, LearningRateScheduler
 # 函数式模型
 from keras.layers import Input, Dense, BatchNormalization, Flatten, Conv2D, MaxPooling2D, Deconv2D
 from keras.models import Model  # 函数式模型
 from keras.layers.advanced_activations import PReLU
-from mgpu_for_train_work_test import to_multi_gpu_nodule_segmented, set_gpus
+from multi_gpus_util import to_multi_gpu_nodule_segmented, set_gpus
 import numpy as np
+import pickle
+from matplotlib import pyplot as plt
 from config import config
 import keras.backend as K
+import os
 
 
 def step_decay(epoch, lr):
