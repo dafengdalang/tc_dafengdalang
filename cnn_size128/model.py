@@ -25,7 +25,7 @@ def step_decay(epoch, lr):
 def focal_loss(y_true, y_pred):
     y_true_f = K.flatten(y_true)
     y_pred_f = K.flatten(y_pred)
-    return -K.mean(K.pow(y_true_f - y_pred_f, 2) * (y_true_f * (K.log(1 - y_pred_f) + (1 - y_true_f) * K.log(y_pred_f))))
+    return -K.sum(K.pow(y_true_f - y_pred_f, 2) * (y_true_f * (K.log(1 - y_pred_f + 1e-5) + (1 - y_true_f) * K.log(y_pred_f + 1e-5))))
 
 class drawloss(keras.callbacks.Callback):
     def __init__(self, work_dir):
@@ -67,7 +67,7 @@ class CNNModel(object):
         self.gpu_nums = gpu_nums
 
         # GPU 版本
-        #set_gpus(num_gpus=self.gpu_nums, auto_growth=True)
+        set_gpus(num_gpus=self.gpu_nums, auto_growth=True)
         
         self.model = self.build_model(load_weight_path)
         print(self.model.summary())
@@ -84,7 +84,7 @@ class CNNModel(object):
         print(model.summary())
         
         # 多GPU分解
-        # model = to_multi_gpu_nodule_segmented(model, n_gpus=self.gpu_nums)
+        model = to_multi_gpu_nodule_segmented(model, n_gpus=self.gpu_nums)
 
         if load_weight_path is not None:
             print("load fpr model from: ", load_weight_path)

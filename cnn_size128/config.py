@@ -4,6 +4,6 @@ config = {
         'lr_decay': 0.9
     },
     'data': {
-        'data_dir': 'D:\\data\\tc\\'
+        'data_dir': '/mnt/data1/lty/'
     }
 }

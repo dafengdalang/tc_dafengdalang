@@ -30,7 +30,7 @@ def get_img_cubic(img_array, center_xy, size = 256):
     return cubic
 
 class DataSet(object):
-    def __init__(self, data_dir, init = False, ori_data_dir = None, train = False, test = False, train_pkl_data_info_path = None, eval_pkl_data_info_path = None, test_pkl_data_info_path = None):
+    def __init__(self, data_dir, init = False, ori_data_dir = None, train = False, test = False, pkl_file_dir = None):
         '''
         init 为True时需要提供ori_data_dir(原始数据目录),将从原始数据目录中统计分类信息，并重新保存图片到规范化的data_dir
         用于训练时，需指定train为True，并且提供最后三个参数，最后三个路径的文件需要首先执行一次pre_pkl_data函数来生成
@@ -54,6 +54,9 @@ class DataSet(object):
         self.test_sample_csv_path = os.path.join(self.data_dir, 'test_sample.csv')
 
         if self.train:
+            self.pkl_file_dir = pkl_file_dir
+            train_pkl_data_info_path = os.path.join(pkl_file_dir, 'train_info.pkl')
+            eval_pkl_data_info_path = os.path.join(pkl_file_dir, 'eval_info.pkl')
             if train_pkl_data_info_path is not None and os.path.exists(train_pkl_data_info_path):
                 with open(train_pkl_data_info_path, 'rb') as fp:
                     self.train_pkl_data_info = pickle.load(fp)
@@ -68,6 +71,8 @@ class DataSet(object):
                 print('cannot found eval pkl data info file, run init and data prepare step first!!!!')
                 assert(False)
         if self.test:
+            self.pkl_file_dir = pkl_file_dir
+            test_pkl_data_info_path = os.path.join(pkl_file_dir, 'test_info.pkl')
             if test_pkl_data_info_path is not None and os.path.exists(test_pkl_data_info_path):
                 with open(test_pkl_data_info_path, 'rb') as fp:
                     self.test_pkl_data_info = pickle.load(fp)
@@ -82,7 +87,7 @@ class DataSet(object):
             if shuffle:
                 np.random.shuffle(pkl_data_infos)
             for pkl_data_info in pkl_data_infos:
-                pkl_file_path = pkl_data_info['file_path']
+                pkl_file_path = os.path.join(self.pkl_file_dir, pkl_data_info['file_name'])
                 with open(pkl_file_path, 'rb') as fp:
                     pkl_file = pickle.load(fp)
                     if shuffle:
@@ -259,7 +264,8 @@ class DataSet(object):
         if not os.path.exists(pkl_data_dir):
             os.mkdir(pkl_data_dir)
         
-        sample_point_df['img_name'] = list(map(lambda img_path: os.path.split(img_path)[1], sample_point_df['img_path']))
+        # sample_point_df['img_name'] = list(map(lambda img_path: os.path.split(img_path.replace('\\', '/'))[1], sample_point_df['img_path'])) # ubuntu
+        sample_point_df['img_name'] = list(map(lambda img_path: os.path.split(img_path)[1], sample_point_df['img_path'])) # windoes
         sample_point_df = sample_point_df.sort_values(by = ['img_name'])
         sample_num_per_pkl = (len(sample_point_df) + package_num - 1) // package_num
         img_path = None
@@ -270,29 +276,29 @@ class DataSet(object):
         data_info_pkl = []
         for _, row in sample_point_df.iterrows():
             if img_path is None or img_path != row['img_path']:
-                print(img_path)
                 img_array = cv2.imread(os.path.join(self.data_dir, row['img_path']))
                 img_path = row['img_path']
+                print(img_path)
             pkl_file.append({'data': get_img_cubic(img_array, [row['coordX'], row['coordY']]), 'l': row['l']})
             pkl_file_num += 1
             if pkl_file_num == sample_num_per_pkl:
                 pkl_file_path = os.path.join(pkl_data_dir, file_name + ('%d' % pkl_file_idx) + '.pkl')
                 with open(pkl_file_path, 'wb') as fp:
-                    pickle.dump(pkl_file, fp)
+                   pickle.dump(pkl_file, fp)
                 pkl_file = []
                 
                 pkl_file_idx += 1
-                data_info_pkl.append({'file_path': pkl_file_path, 'data_num': pkl_file_num})
+                data_info_pkl.append({'file_name': os.path.split(pkl_file_path)[-1], 'data_num': pkl_file_num})
                 print(pkl_file_path)
                 print('data num: %d' % pkl_file_num)
                 pkl_file_num = 0
         if pkl_file_num:
             pkl_file_path = os.path.join(pkl_data_dir, file_name + ('%d' % pkl_file_idx) + '.pkl')
             with open(pkl_file_path, 'wb') as fp:
-                pickle.dump(pkl_file, fp)
+               pickle.dump(pkl_file, fp)
             pkl_file = []
             pkl_file_idx += 1
-            data_info_pkl.append({'file_path': pkl_file_path, 'data_num': pkl_file_num})
+            data_info_pkl.append({'file_name': os.path.split(pkl_file_path)[-1], 'data_num': pkl_file_num})
             print(pkl_file_path)
             print('data num: %d' % pkl_file_num)
             pkl_file_num = 0
