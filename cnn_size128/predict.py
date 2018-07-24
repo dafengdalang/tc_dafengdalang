@@ -1,0 +1,62 @@
+import os
+from glob import glob
+import pickle
+from dataset import DataSet
+from model import CNNModel
+import pandas as pd
+from config import config
+import sklearn.metrics as skl_metrics
+import matplotlib.pyplot as plt
+import numpy as np
+
+def cal_roc_and_auc(pred_array, label_array):
+    total = len(label_array)
+    P = sum(label_array)
+    N = (total - P)
+    roc_y = []
+    roc_x = []
+    for threshold in np.arange(1.0, -0.001, -0.001):
+        tp_list = np.less_equal(threshold, pred_array) * label_array
+        fp_list = np.less_equal(threshold, pred_array) * (1 - label_array)
+        tpr = sum(tp_list) / P if P != 0 else 0.0
+        fpr = sum(fp_list) / N if N != 0 else 0.0
+        roc_x.append(fpr)
+        roc_y.append(tpr)
+    x = roc_x[0]
+    y = roc_y[0]
+    auc = 0.0
+    for cur_x, cur_y in zip(roc_x,roc_y):
+        auc += (cur_y + y) * (cur_x - x) / 2
+        x = cur_x
+        y = cur_y
+    return auc
+
+def draw_roc(pred_array, label_array, target_dir):
+    fprs, tprs, _ = skl_metrics.roc_curve(label_array, pred_array)
+    plt.plot(fprs, tprs)
+    plt.title('roc')
+    plt.xlabel("fpr")
+    plt.ylabel("tpr")
+    plt.show()
+    plt.savefig(os.path.join(target_dir, "roc.png"))
+    plt.close()
+
+def predict_test_set(model_path, batch_size, pkl_data_dir, target_dir, num_gpus = 1):
+    dataset = DataSet(data_dir = config['data']['data_dir'], test = True, pkl_file_dir = pkl_data_dir)
+    cnn_model = CNNModel(model_path, False, gpu_nums = num_gpus)
+    test_data_gen = dataset.get_test_data_gen(batch_size)
+    pred_list = []
+    label_list = []
+    for batch_data, batch_label in test_data_gen:
+        preds = cnn_model.predict(batch_data['inputs'], batch_size)
+        idx = 0
+        for pred in preds:
+            label_list.append(batch_label['out_class'][idx][1])
+            pred_list.append(pred[1])
+            idx += 1
+    auc = cal_roc_and_auc(np.array(pred_list), np.array(label_list))
+    draw_roc(np.array(pred_list), np.array(label_list), target_dir)
+    print('auc:%f' % auc)
+    
+if __name__ == '__main__':
+    predict_test_set('/mnt/data1/lty/train/cnn_end.hd5', 64, '/mnt/data1/lty/pkl_data/', '/mnt/data1/lty/test/')

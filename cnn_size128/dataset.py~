@@ -110,7 +110,7 @@ class DataSet(object):
     def get_test_data_gen(self, batch_size):
         batch_data = {'inputs': [], 'out_class': []}
         batch_data_num = 0
-        for pkl_data_info in self.test_pkl_data_info:
+        for pkl_data_info in self.train_pkl_data_info:
             pkl_file_path = os.path.join(self.pkl_file_dir, pkl_data_info['file_name'])
             with open(pkl_file_path, 'rb') as fp:
                 pkl_file = pickle.load(fp)
@@ -357,17 +357,6 @@ class DataSet(object):
     
     def get_test_data_num(self):
         return self._get_data_num(self.test_pkl_data_info)
-    
-    def show_some_example_img(self, pkl_path, target_dir):
-        with open(pkl_path, 'rb') as fp:
-            data_file = pickle.load(fp)
-        idx = 0
-        np.random.shuffle(data_file)
-        for record in data_file:
-            cv2.imwrite(os.path.join(target_dir, 'img_%d_%d.png' % (idx, record['l'])), record['data'])
-            idx += 1
-            if idx >= 100:
-                break
 
 if __name__ == '__main__':
     if False:
@@ -383,9 +372,5 @@ if __name__ == '__main__':
             total_img_num += len(os.listdir(class_path))
         
         print(total_img_num)
-    
-    if True:
-        data_set = DataSet("D:\\data\\tc", False)
-        data_set.show_some_example_img('D:\\data\\tc\\pkl_data\\train0.pkl', 'D:\\data\\tc\\pkl_data\\img\\')
 
         
