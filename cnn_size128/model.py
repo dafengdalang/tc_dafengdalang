@@ -1,7 +1,7 @@
 import keras
 # 优化器与监控值
 from keras.optimizers import SGD, RMSprop
-from keras.metrics import binary_accuracy
+from keras.metrics import binary_accuracy, binary_crossentropy
 from keras.callbacks import ModelCheckpoint, Callback, LearningRateScheduler
 # 函数式模型
 from keras.layers import Input, Dense, BatchNormalization, Flatten, Conv2D, MaxPooling2D, Deconv2D
@@ -25,7 +25,7 @@ def step_decay(epoch, lr):
 def focal_loss(y_true, y_pred):
     y_true_f = K.flatten(y_true)
     y_pred_f = K.flatten(y_pred)
-    return -K.sum(K.pow(y_true_f - y_pred_f, 2) * (y_true_f * (K.log(1 - y_pred_f + 1e-5) + (1 - y_true_f) * K.log(y_pred_f + 1e-5))))
+    return K.mean(K.pow(y_true_f - y_pred_f, 2) * ((1 - y_true_f) * K.log(y_pred_f + 1e-5))) + y_true_f * (K.log(1 - y_pred_f + 1e-5))
 
 class drawloss(keras.callbacks.Callback):
     def __init__(self, work_dir):
@@ -72,8 +72,8 @@ class CNNModel(object):
         self.model = self.build_model(load_weight_path)
         if self.train:
             self.model.compile(optimizer = RMSprop(lr=learning_rate),
-                               loss = focal_loss,
-                               metrics = {'out_class' : [focal_loss, binary_accuracy]})
+                               loss = {"out_class": "binary_crossentropy"},
+                               metrics = {'out_class' : [binary_crossentropy, binary_accuracy]})
             # self.model.compile(optimizer=SGD(lr = learning_rate, momentum = 0.9, nesterov = True), loss={"out_class": "binary_crossentropy"}, metrics={"out_class": [binary_accuracy, binary_crossentropy]})
 
     def build_model(self, load_weight_path=None) -> Model:

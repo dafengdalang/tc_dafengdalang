@@ -39,5 +39,5 @@ if __name__ == '__main__':
         data_set.pre_pkl_data("/mnt/data1/lty/pkl_data/") #将数据打包至"D:\\data\\tc\\pkl_data\\"目录
     if True:
         init_train_dir('/mnt/data1/lty/train/') # 初始化训练目录
-        batch_size = 96
-        train_model('/mnt/data1/lty/train/', '/mnt/data1/lty/pkl_data/', initial_epoch = 0, batch_size = batch_size, initial_lr = 0.01)
+        batch_size = 64
+        train_model('/mnt/data1/lty/train/', '/mnt/data1/lty/pkl_data/', initial_epoch = 0, batch_size = batch_size, initial_lr = 0.001)
