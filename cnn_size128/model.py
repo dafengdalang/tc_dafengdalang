@@ -4,7 +4,7 @@ from keras.optimizers import SGD, RMSprop
 from keras.metrics import binary_accuracy, binary_crossentropy
 from keras.callbacks import ModelCheckpoint, Callback, LearningRateScheduler
 # 函数式模型
-from keras.layers import Input, Dense, BatchNormalization, Flatten, Conv2D, MaxPooling2D, Deconv2D
+from keras.layers import Input, Dense, BatchNormalization, Flatten, Conv2D, MaxPooling2D, Deconv2D, Dropout
 from keras.models import Model  # 函数式模型
 from keras.layers.advanced_activations import PReLU
 from multi_gpus_util import to_multi_gpu_nodule_segmented, set_gpus
@@ -14,6 +14,8 @@ from matplotlib import pyplot as plt
 from config import config
 import keras.backend as K
 import os
+import cv2
+from dataset import get_img_cubic
 
 
 def step_decay(epoch, lr):
@@ -95,40 +97,40 @@ class CNNModel(object):
 
     def network(self, inputs):
         # 256 256 3
-        l = Conv2D(16, (3, 3), padding = 'same', name = 'conv1_1')(inputs)
+        l = Conv2D(32, (3, 3), padding = 'same', name = 'conv1_1')(inputs)
         l = BatchNormalization()(l)
         l = PReLU()(l)
-        l = Conv2D(16, (3, 3), padding = 'same', name = 'conv1_2')(l)
+        l = Conv2D(32, (3, 3), padding = 'same', name = 'conv1_2')(l)
         l = BatchNormalization()(l)
         l = PReLU()(l)
-        l = Conv2D(16, (2, 2), strides = (2, 2), padding = 'valid', name = 'down_sample_1')(l)
+        l = Conv2D(32, (2, 2), strides = (2, 2), padding = 'valid', name = 'down_sample_1')(l)
         # 128 128 16
 
-        l = Conv2D(32, (3, 3), padding = 'same', name = 'conv2_1')(l)
+        l = Conv2D(64, (3, 3), padding = 'same', name = 'conv2_1')(l)
         l = BatchNormalization()(l)
         l = PReLU()(l)
-        l = Conv2D(32, (3, 3), padding = 'same', name = 'conv2_2')(l)
+        l = Conv2D(64, (3, 3), padding = 'same', name = 'conv2_2')(l)
         l = BatchNormalization()(l)
         l = PReLU()(l)
-        l = Conv2D(32, (2, 2), strides = (2, 2), padding = 'valid', name = 'down_sample_2')(l)
+        l = Conv2D(64, (2, 2), strides = (2, 2), padding = 'valid', name = 'down_sample_2')(l)
         # 64 64 32
 
-        l = Conv2D(64, (3, 3), padding = 'same', name = 'conv3_1')(l)
+        l = Conv2D(128, (3, 3), padding = 'same', name = 'conv3_1')(l)
         l = BatchNormalization()(l)
         l = PReLU()(l)
-        l = Conv2D(64, (3, 3), padding = 'same', name = 'conv3_2')(l)
+        l = Conv2D(128, (3, 3), padding = 'same', name = 'conv3_2')(l)
         l = BatchNormalization()(l)
         l = PReLU()(l)
-        l = Conv2D(64, (2, 2), strides = (2, 2), padding = 'valid', name = 'down_sample_3')(l)
+        l = Conv2D(128, (2, 2), strides = (2, 2), padding = 'valid', name = 'down_sample_3')(l)
         # 32 32 64
 
-        l = Conv2D(128, (3, 3), padding = 'same', name = 'conv4_1')(l)
+        l = Conv2D(256, (3, 3), padding = 'same', name = 'conv4_1')(l)
         l = BatchNormalization()(l)
         l = PReLU()(l)
-        l = Conv2D(128, (3, 3), padding = 'same', name = 'conv4_2')(l)
+        l = Conv2D(256, (3, 3), padding = 'same', name = 'conv4_2')(l)
         l = BatchNormalization()(l)
         l = PReLU()(l)
-        l = Conv2D(128, (2, 2), strides = (2, 2), padding = 'valid', name = 'down_sample_4')(l)
+        l = Conv2D(256, (2, 2), strides = (2, 2), padding = 'valid', name = 'down_sample_4')(l)
         # 16 16 128
 
         l = Flatten()(l)
@@ -136,6 +138,7 @@ class CNNModel(object):
         l = Dense(200)(l)
         l = BatchNormalization()(l)
         l = PReLU()(l)
+        l = Dropout(0.2)(l)
 
         l = Dense(100)(l)
         l = BatchNormalization()(l)
@@ -188,7 +191,24 @@ class CNNModel(object):
             preds = preds[: inputs_num, :, :, :]
 
         return preds
+    def predict_one_img(self, image_path, batch_size):
+        image_array = cv2.imread(image_path)
+        size_y, size_x, channel = image_array.shape
+        point_list = [(x, y) for x in range(0, size_x, 128) for y in range(0, size_y, 128)]
+        data = []
+        pred_list = []
+        for point in point_list:
+            data.append(np.array(get_img_cubic(image_array, point) / 255, np.float32))
+        
+        point_num = len(point)
 
+        for s in range(0, point_num, batch_size):
+            batch_data = data[s : min(point_num, s + batch_size)]
+            batch_pred = self.predict(np.array(batch_data, np.float32), batch_size)
+            for pred in batch_pred:
+                pred_list.append(pred[1])
+        
+        return max(pred_list)
 
 if __name__ == '__main__':
     # test model frame

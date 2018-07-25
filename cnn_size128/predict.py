@@ -57,6 +57,18 @@ def predict_test_set(model_path, batch_size, pkl_data_dir, target_dir, num_gpus 
     auc = cal_roc_and_auc(np.array(pred_list), np.array(label_list))
     draw_roc(np.array(pred_list), np.array(label_list), target_dir)
     print('auc:%f' % auc)
-    
+
+def gen_result(model_path, test_img_dir, target_dir, batch_size = 64, num_gpus = 1):
+    cnn_model = CNNModel(model_path, False, gpu_nums = num_gpus)
+    result_dict = {'filename': [], 'probability': []}
+    for img_path in glob(os.path.join(test_img_dir, '*.jpg')):
+        img_pred = cnn_model.predict_one_img(img_path, batch_size)
+        result_dict['filename'].append(os.path.split(img_path)[-1])
+        result_dict['probability'].append(img_pred)
+    result_df = pd.DataFrame(result_dict)
+    result_df.to_csv(os.path.join(target_dir, 'result.csv'), index = False)
+
+
 if __name__ == '__main__':
     predict_test_set('/mnt/data1/lty/train/cnn_end.hd5', 64, '/mnt/data1/lty/pkl_data/', '/mnt/data1/lty/test/')
+    gen_result()
