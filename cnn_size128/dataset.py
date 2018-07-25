@@ -108,23 +108,27 @@ class DataSet(object):
         return self._get_data_generator(self.eval_pkl_data_info, batch_size, False)
     
     def get_test_data_gen(self, batch_size):
-        batch_data = {'inputs': [], 'out_class': []}
+        batch_data = {'inputs': [], 'out_class': [], 'info': {'file_path': [], 'pkl_idx': []}}
         batch_data_num = 0
         for pkl_data_info in self.test_pkl_data_info:
             pkl_file_path = os.path.join(self.pkl_file_dir, pkl_data_info['file_name'])
             with open(pkl_file_path, 'rb') as fp:
                 pkl_file = pickle.load(fp)
+                pkl_idx = 0
                 for record in pkl_file:
                     batch_data['inputs'].append(record['data'])
                     batch_data['out_class'].append([1, 0] if record['l'] == 0 else [0, 1])
                     batch_data_num += 1
+                    batch_data['info']['file_path'].append(pkl_file_path)
+                    batch_data['info']['pkl_idx'].append(pkl_idx)
+                    pkl_idx += 1
                     if batch_data_num == batch_size:
-                        yield {'inputs': np.array(batch_data['inputs'], np.float32) / 255}, {'out_class': np.array(batch_data['out_class'])}
-                        batch_data = {'inputs': [], 'out_class': []}
+                        yield {'inputs': np.array(batch_data['inputs'], np.float32) / 255}, {'out_class': np.array(batch_data['out_class'])}, batch_data['info']
+                        batch_data = {'inputs': [], 'out_class': [], 'info': {'file_path': [], 'pkl_idx': []}}
                         batch_data_num = 0
         if batch_data_num:
-            yield {'inputs': np.array(batch_data['inputs'], np.float32) / 255}, {'out_class': np.array(batch_data['out_class'])}
-            batch_data = {'inputs': [], 'out_class': []}
+            yield {'inputs': np.array(batch_data['inputs'], np.float32) / 255}, {'out_class': np.array(batch_data['out_class'])}, batch_data['info']
+            batch_data = {'inputs': [], 'out_class': [], 'info': {'file_path': [], 'pkl_idx': []}}
             batch_data_num = 0
 
     def _prepare_data(self, ori_data_path):
