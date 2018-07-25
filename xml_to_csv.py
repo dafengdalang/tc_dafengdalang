@@ -32,20 +32,30 @@ def extract_csv_from_xml(data_dirs, target_dir):
             img_infos = []
             for img_path in img_paths:
                 img_name = os.path.split(img_path)[-1].split('.jpg')[0]
-                img_info_tree = ET.parse(os.path.join(class_path, img_name + '.xml'))
-                img_info_tree_root = img_info_tree.getroot()
-                object_info = get_object_info(img_info_tree_root)
-                info_dict['file_name'] += [img_name for _ in range(len(object_info['names']))]
-                info_dict['class_name'] += object_info['names']
-                for rect in object_info['rects']:
-                    info_dict['min_x'].append(rect[0])
-                    info_dict['min_y'].append(rect[1])
-                    info_dict['max_x'].append(rect[2])
-                    info_dict['max_y'].append(rect[3])
-                shutil.copy(img_path, os.path.join(img_dir, img_name + '.jpg'))
+                if class_name == '正常':
+                    info_dict['file_name'].append(img_name)
+                    info_dict['class_name'].append(class_name)
+                    info_dict['min_x'].append(-1)
+                    info_dict['min_y'].append(-1)
+                    info_dict['max_x'].append(-1)
+                    info_dict['max_y'].append(-1)
+                else:
+                    img_info_tree = ET.parse(os.path.join(class_path, img_name + '.xml'))
+                    img_info_tree_root = img_info_tree.getroot()
+                    object_info = get_object_info(img_info_tree_root)
+                    info_dict['file_name'] += [img_name for _ in range(len(object_info['names']))]
+                    info_dict['class_name'] += object_info['names']
+                    for rect in object_info['rects']:
+                        info_dict['min_x'].append(rect[0])
+                        info_dict['min_y'].append(rect[1])
+                        info_dict['max_x'].append(rect[2])
+                        info_dict['max_y'].append(rect[3])
+                # shutil.copy(img_path, os.path.join(img_dir, img_name + '.jpg'))
+    info_df = pd.DataFrame(info_dict)
+    info_df.to_csv(os.path.join(target_dir, 'info.csv'), index = False, encoding = 'utf-8')
 
-
-
+if __name__ == '__main__':
+    extract_csv_from_xml('D:\\data\\天池', 'D:\\data\\tc\\data')
 
 # ET.parse(os.path.join(class_path, img_name + '.xml')).getroot()
 # img_info_tree_root = img_info_tree.getroot()
