@@ -27,7 +27,7 @@ def step_decay(epoch, lr):
 def focal_loss(y_true, y_pred):
     y_true_f = K.flatten(y_true)
     y_pred_f = K.flatten(y_pred)
-    return K.mean(K.pow(y_true_f - y_pred_f, 2) * ((1 - y_true_f) * K.log(y_pred_f + 1e-5))) + y_true_f * (K.log(1 - y_pred_f + 1e-5))
+    return - K.mean(K.pow(y_true_f - y_pred_f, 2) * (y_true_f * K.log(y_pred_f + 1e-5) + (1 - y_true_f) * (K.log(1 - y_pred_f + 1e-5))))
 
 class drawloss(keras.callbacks.Callback):
     def __init__(self, work_dir):
@@ -74,8 +74,8 @@ class CNNModel(object):
         self.model = self.build_model(load_weight_path)
         if self.train:
             self.model.compile(optimizer = RMSprop(lr=learning_rate),
-                               loss = {"out_class": "binary_crossentropy"},
-                               metrics = {'out_class' : [binary_crossentropy, binary_accuracy]})
+                               loss = {"out_class": focal_loss},
+                               metrics = {'out_class' : [focal_loss, binary_accuracy]})
             # self.model.compile(optimizer=SGD(lr = learning_rate, momentum = 0.9, nesterov = True), loss={"out_class": "binary_crossentropy"}, metrics={"out_class": [binary_accuracy, binary_crossentropy]})
 
     def build_model(self, load_weight_path=None) -> Model:
@@ -97,41 +97,41 @@ class CNNModel(object):
 
     def network(self, inputs):
         # 256 256 3
-        l = Conv2D(32, (3, 3), padding = 'same', name = 'conv1_1')(inputs)
+        l = Conv2D(64, (3, 3), padding = 'same', name = 'conv1_1')(inputs)
         l = BatchNormalization()(l)
         l = PReLU()(l)
-        l = Conv2D(32, (3, 3), padding = 'same', name = 'conv1_2')(l)
+        l = Conv2D(64, (3, 3), padding = 'same', name = 'conv1_2')(l)
         l = BatchNormalization()(l)
         l = PReLU()(l)
-        l = Conv2D(32, (2, 2), strides = (2, 2), padding = 'valid', name = 'down_sample_1')(l)
-        # 128 128 16
+        l = Conv2D(64, (2, 2), strides = (2, 2), padding = 'valid', name = 'down_sample_1')(l)
+        # 128 128 64
 
-        l = Conv2D(64, (3, 3), padding = 'same', name = 'conv2_1')(l)
+        l = Conv2D(128, (3, 3), padding = 'same', name = 'conv2_1')(l)
         l = BatchNormalization()(l)
         l = PReLU()(l)
-        l = Conv2D(64, (3, 3), padding = 'same', name = 'conv2_2')(l)
+        l = Conv2D(128, (3, 3), padding = 'same', name = 'conv2_2')(l)
         l = BatchNormalization()(l)
         l = PReLU()(l)
-        l = Conv2D(64, (2, 2), strides = (2, 2), padding = 'valid', name = 'down_sample_2')(l)
-        # 64 64 32
+        l = Conv2D(128, (2, 2), strides = (2, 2), padding = 'valid', name = 'down_sample_2')(l)
+        # 64 64 128
 
-        l = Conv2D(128, (3, 3), padding = 'same', name = 'conv3_1')(l)
+        l = Conv2D(256, (3, 3), padding = 'same', name = 'conv3_1')(l)
         l = BatchNormalization()(l)
         l = PReLU()(l)
-        l = Conv2D(128, (3, 3), padding = 'same', name = 'conv3_2')(l)
+        l = Conv2D(256, (3, 3), padding = 'same', name = 'conv3_2')(l)
         l = BatchNormalization()(l)
         l = PReLU()(l)
-        l = Conv2D(128, (2, 2), strides = (2, 2), padding = 'valid', name = 'down_sample_3')(l)
-        # 32 32 64
+        l = Conv2D(256, (2, 2), strides = (2, 2), padding = 'valid', name = 'down_sample_3')(l)
+        # 32 32 256
 
-        l = Conv2D(256, (3, 3), padding = 'same', name = 'conv4_1')(l)
+        l = Conv2D(512, (3, 3), padding = 'same', name = 'conv4_1')(l)
         l = BatchNormalization()(l)
         l = PReLU()(l)
-        l = Conv2D(256, (3, 3), padding = 'same', name = 'conv4_2')(l)
+        l = Conv2D(512, (3, 3), padding = 'same', name = 'conv4_2')(l)
         l = BatchNormalization()(l)
         l = PReLU()(l)
-        l = Conv2D(256, (2, 2), strides = (2, 2), padding = 'valid', name = 'down_sample_4')(l)
-        # 16 16 128
+        l = Conv2D(512, (2, 2), strides = (2, 2), padding = 'valid', name = 'down_sample_4')(l)
+        # 16 16 512
 
         l = Flatten()(l)
 
